@@ -128,3 +128,43 @@ Reports saved to `%TEMP%\oscheat_<timestamp>\`. Final summary always prints find
 ---
 
 **Never run this on a system you don't have written authorization to test.**
+
+## ⭐ NEW: `oscheat.exe` (native compiled binary, no Python/PS required!)
+
+Just **download the `oscheat.exe` file** from this repo (1.0 MB), copy to any Windows box, and double-click. No Python, no PowerShell scripts, no .NET, no csc.exe — it's a real Win64 native executable.
+
+```
+oscheat/
+├── oscheat.exe  ← JUST THIS ONE FILE. That's it.
+├── oscheat.cs            # Same logic, C# source (alternative)
+├── oscheat.ps1           # Same logic, PowerShell (alternative)
+├── oscheat.py            # Same logic, Python (alternative)
+├── oscheat.bat           # BAT launcher for ps1
+├── run_keep_open.bat     # Bulletproof wrapper
+├── build_cs.bat          # Compile cs to exe yourself
+├── build_exe.py          # PyInstaller builder
+├── CHECK_TOOLS.bat       # Diagnostic
+└── README.md             # This file
+```
+
+**Quick start with .exe:**
+
+1. Download `oscheat.exe` from the [releases page](https://github.com/Sunz01/oscheat/raw/master/oscheat/oscheat.exe) (or click "Download raw file" on the file in the repo)
+2. Copy to USB / target Windows box
+3. Double-click to run
+4. Reports saved to `%TEMP%\oscheat_<timestamp>\`
+
+## 📊 Version comparison
+
+| Version | Size | Dependencies | Restricted envs |
+|---------|------|--------------|-----------------|
+| `oscheat.exe` ⭐ | 1.0 MB | **None** | ✅ Works everywhere |
+| `oscheat.py` | 24 KB | Python 3.x | ⚠️ Need Python |
+| `oscheat.ps1` | 42 KB | PowerShell | ⚠️ ExecutionPolicy |
+| `oscheat.cs` | 36 KB | .NET Framework (built-in) + csc | ✅ csc.exe is built-in |
+| `oscheat.bat` | 1.5 KB | PowerShell (via -File) | ⚠️ PS restrictions |
+
+The pre-compiled `.exe` is the **simplest path**: one file, runs anywhere, no install, no admin, no compilation step.
+
+Compiled 2026-08-24 from C++ source via mingw-w64 cross-compiler on Linux. Tested PE32+ x64 console app — should work on any Win10/11 64-bit system.
+
