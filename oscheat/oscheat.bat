@@ -1,15 +1,14 @@
 @echo off
 REM ============================================================
-REM OSCheat launcher - V2 (fixed)
-REM Runs oscheat.ps1 in PowerShell with execution policy bypass.
-REM Works even when PowerShell execution policy is locked.
+REM OSCheat launcher - V3 (CMD-window-stays-open fix)
+REM Uses full path to powershell and keeps cmd open after run.
 REM ============================================================
 
 setlocal
 set "SCRIPT_DIR=%~dp0"
 set "PS_SCRIPT=%SCRIPT_DIR%oscheat.ps1"
 
-REM Locate powershell.exe using full path (avoids any PATH issues)
+REM Locate powershell.exe with full path (resolves any PATH issues)
 if exist "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" (
     set "PS_EXE=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 ) else (
@@ -27,25 +26,20 @@ if not exist "%PS_SCRIPT%" (
 
 echo.
 echo ============================================================
-echo  OSCheat Launcher v2
-echo  Running: %PS_SCRIPT%
-echo  Using:   %PS_EXE%
+echo  OSCheat Launcher v3
+echo  Script:   %PS_SCRIPT%
+echo  PowerShell: %PS_EXE%
 echo ============================================================
 echo.
 
-REM Method 1 (preferred): direct execution with bypass
+REM Run PowerShell with bypass. After it exits, pause so the cmd window stays open.
 "%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "%PS_SCRIPT%"
+set "PS_ERROR=%errorlevel%"
 
-REM If that fails, this catches the error
-if errorlevel 1 (
-    echo.
-    echo ============================================================
-    echo  Direct run failed (error %errorlevel%). Trying alternative method...
-    echo ============================================================
-    echo.
-
-    REM Method 2: read script as command via stdin
-    type "%PS_SCRIPT%" | "%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -NonInteractive -Command -
-)
-
+echo.
+echo ============================================================
+echo  OSCheat finished. Exit code: %PS_ERROR%
+echo ============================================================
+echo.
+pause
 endlocal
